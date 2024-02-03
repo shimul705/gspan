@@ -10,6 +10,8 @@ import matplotlib.pyplot as plt
 VACANT_VERTEX_ID = -1
 VACANT_EDGE_ID = -1
 VACANT_EDGE_LABEL = -1
+AUTO_EDGE_ID = -1
+
 
 
 class Vertex(object):
