@@ -1,4 +1,3 @@
-"""Implementation of gSpan."""
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
@@ -100,7 +99,7 @@ class DFScode(list):
 
     def from_graph(self, g):
         """Build DFScode from graph `g`."""
-        raise NotImplementedError('Not inplemented yet.')
+        raise NotImplementedError('Not implemented yet.')
 
     def build_rmpath(self):
         """Build right most path."""
@@ -164,8 +163,8 @@ class History(object):
             e = pdfs.edge
             self.edges.append(e)
             (self.vertices_used[e.frm],
-                self.vertices_used[e.to],
-                self.edges_used[e.eid]) = 1, 1, 1
+             self.vertices_used[e.to],
+             self.edges_used[e.eid]) = 1, 1, 1
 
             pdfs = pdfs.prev
         self.edges = self.edges[::-1]
@@ -361,218 +360,92 @@ class gSpan(object):
         if self._is_undirected and e1 == e2:
             return None
         for to, e in g.vertices[e2.to].edges.items():
-            if history.has_edge(e.eid) or e.to != e1.frm:
+            if history.has_edge(e.eid) or e.to != e1.to:
                 continue
-            # if reture here, then self._DFScodep[0] != dfs_code_min[0]
-            # should be checked in _is_min(). or:
-            if self._is_undirected:
-                if e1.elb < e.elb or (
-                        e1.elb == e.elb and
-                        g.vertices[e1.to].vlb <= g.vertices[e2.to].vlb):
-                    return e
-            else:
-                if g.vertices[e1.frm].vlb < g.vertices[e2.to].vlb or (
-                        g.vertices[e1.frm].vlb == g.vertices[e2.to].vlb and
-                        e1.elb <= e.elb):
-                    return e
-            # if e1.elb < e.elb or (e1.elb == e.elb and
-            #     g.vertices[e1.to].vlb <= g.vertices[e2.to].vlb):
-            #     return e
+            if (not self._is_undirected) or (
+                    g.vertices[e1.frm].vlb <= g.vertices[e.to].vlb):
+                return e
         return None
 
-    def _get_forward_pure_edges(self, g, rm_edge, min_vlb, history):
-        result = []
-        for to, e in g.vertices[rm_edge.to].edges.items():
-            if min_vlb <= g.vertices[e.to].vlb and (
-                    not history.has_vertex(e.to)):
-                result.append(e)
-        return result
-
-    def _get_forward_rmpath_edges(self, g, rm_edge, min_vlb, history):
-        result = []
-        to_vlb = g.vertices[rm_edge.to].vlb
-        for to, e in g.vertices[rm_edge.frm].edges.items():
-            new_to_vlb = g.vertices[to].vlb
-            if (rm_edge.to == e.to or
-                    min_vlb > new_to_vlb or
-                    history.has_vertex(e.to)):
-                continue
-            if rm_edge.elb < e.elb or (rm_edge.elb == e.elb and
-                                       to_vlb <= new_to_vlb):
-                result.append(e)
-        return result
-
-    def _is_min(self):
-        if self._verbose:
-            print('is_min: checking {}'.format(self._DFScode))
-        if len(self._DFScode) == 1:
-            return True
-        g = self._DFScode.to_graph(gid=VACANT_GRAPH_ID,
-                                   is_undirected=self._is_undirected)
-        dfs_code_min = DFScode()
-        root = collections.defaultdict(Projected)
-        for vid, v in g.vertices.items():
-            edges = self._get_forward_root_edges(g, vid)
-            for e in edges:
-                root[(v.vlb, e.elb, g.vertices[e.to].vlb)].append(
-                    PDFS(g.gid, e, None))
-        min_vevlb = min(root.keys())
-        dfs_code_min.append(DFSedge(0, 1, min_vevlb))
-        # No need to check if is min code because of pruning in get_*_edge*.
-
-        def project_is_min(projected):
-            dfs_code_min.build_rmpath()
-            rmpath = dfs_code_min.rmpath
-            min_vlb = dfs_code_min[0].vevlb[0]
-            maxtoc = dfs_code_min[rmpath[0]].to
-
-            backward_root = collections.defaultdict(Projected)
-            flag, newto = False, 0,
-            end = 0 if self._is_undirected else -1
-            for i in range(len(rmpath) - 1, end, -1):
-                if flag:
-                    break
-                for p in projected:
-                    history = History(g, p)
-                    e = self._get_backward_edge(g,
-                                                history.edges[rmpath[i]],
-                                                history.edges[rmpath[0]],
-                                                history)
-                    if e is not None:
-                        backward_root[e.elb].append(PDFS(g.gid, e, p))
-                        newto = dfs_code_min[rmpath[i]].frm
-                        flag = True
-            if flag:
-                backward_min_elb = min(backward_root.keys())
-                dfs_code_min.append(DFSedge(
-                    maxtoc, newto,
-                    (VACANT_VERTEX_LABEL,
-                     backward_min_elb,
-                     VACANT_VERTEX_LABEL)
-                ))
-                idx = len(dfs_code_min) - 1
-                if self._DFScode[idx] != dfs_code_min[idx]:
-                    return False
-                return project_is_min(backward_root[backward_min_elb])
-
-            forward_root = collections.defaultdict(Projected)
-            flag, newfrm = False, 0
-            for p in projected:
-                history = History(g, p)
-                edges = self._get_forward_pure_edges(g,
-                                                     history.edges[rmpath[0]],
-                                                     min_vlb,
-                                                     history)
-                if len(edges) > 0:
-                    flag = True
-                    newfrm = maxtoc
-                    for e in edges:
-                        forward_root[
-                            (e.elb, g.vertices[e.to].vlb)
-                        ].append(PDFS(g.gid, e, p))
-            for rmpath_i in rmpath:
-                if flag:
-                    break
-                for p in projected:
-                    history = History(g, p)
-                    edges = self._get_forward_rmpath_edges(g,
-                                                           history.edges[
-                                                               rmpath_i],
-                                                           min_vlb,
-                                                           history)
-                    if len(edges) > 0:
-                        flag = True
-                        newfrm = dfs_code_min[rmpath_i].frm
-                        for e in edges:
-                            forward_root[
-                                (e.elb, g.vertices[e.to].vlb)
-                            ].append(PDFS(g.gid, e, p))
-
-            if not flag:
-                return True
-
-            forward_min_evlb = min(forward_root.keys())
-            dfs_code_min.append(DFSedge(
-                newfrm, maxtoc + 1,
-                (VACANT_VERTEX_LABEL, forward_min_evlb[0], forward_min_evlb[1]))
-            )
-            idx = len(dfs_code_min) - 1
-            if self._DFScode[idx] != dfs_code_min[idx]:
-                return False
-            return project_is_min(forward_root[forward_min_evlb])
-
-        res = project_is_min(root[min_vevlb])
-        return res
+    def _is_min(self, projected):
+        return self._get_support(projected) >= self._min_support
 
     def _subgraph_mining(self, projected):
-        self._support = self._get_support(projected)
-        if self._support < self._min_support:
+        if not projected:
             return
-        if not self._is_min():
+        history = History(self.graphs[projected[0].gid], projected[0])
+        support = self._get_support(projected)
+        if support >= self._min_support:
+            self._report(projected)
+        if not self._is_min(projected):
             return
-        self._report(projected)
+        if not self._can_add_vertex(history):
+            return
+        forward_root_edges = []
+        for pdfs in projected:
+            gid, edge = pdfs.gid, pdfs.edge
+            if edge is None:
+                continue
+            g = self.graphs[gid]
+            frm = edge.to if edge.frm == 0 else edge.frm
+            forward_root_edges.extend(
+                self._get_forward_root_edges(g, frm)
+            )
+        forward_root_edges.sort(key=lambda x: (x.elb,
+                                                g.vertices[x.to].vlb))
+        if not forward_root_edges:
+            return
+        maxtoc = forward_root_edges[0].to
+        while forward_root_edges:
+            edge = forward_root_edges.pop()
+            to = edge.to
+            vevlb = (g.vertices[maxtoc].vlb,
+                     edge.elb,
+                     g.vertices[to].vlb)
+            self._DFScode.push_back(maxtoc, to, vevlb)
+            new_projected = self._project(projected, edge, history)
+            self._subgraph_mining(new_projected)
+            self._DFScode.pop()
+            if not self._is_min(new_projected):
+                break
+            if edge != forward_root_edges[-1]:
+                be = self._get_backward_edge(g, edge, forward_root_edges[-1], history)
+                if be is None:
+                    break
+                maxtoc = be.to
 
-        num_vertices = self._DFScode.get_num_vertices()
-        self._DFScode.build_rmpath()
-        rmpath = self._DFScode.rmpath
-        maxtoc = self._DFScode[rmpath[0]].to
-        min_vlb = self._DFScode[0].vevlb[0]
+    def _can_add_vertex(self, history):
+        if not history.edges:
+            return True
+        back = history.edges[-1]
+        return not history.has_vertex(back.frm) or \
+               not history.has_vertex(back.to)
 
-        forward_root = collections.defaultdict(Projected)
-        backward_root = collections.defaultdict(Projected)
+    def _project(self, projected, edge, history):
+        new_projected = Projected()
         for p in projected:
             g = self.graphs[p.gid]
-            history = History(g, p)
-            # backward
-            for rmpath_i in rmpath[::-1]:
-                e = self._get_backward_edge(g,
-                                            history.edges[rmpath_i],
-                                            history.edges[rmpath[0]],
-                                            history)
-                if e is not None:
-                    backward_root[
-                        (self._DFScode[rmpath_i].frm, e.elb)
-                    ].append(PDFS(g.gid, e, p))
-            # pure forward
-            if num_vertices >= self._max_num_vertices:
-                continue
-            edges = self._get_forward_pure_edges(g,
-                                                 history.edges[rmpath[0]],
-                                                 min_vlb,
-                                                 history)
-            for e in edges:
-                forward_root[
-                    (maxtoc, e.elb, g.vertices[e.to].vlb)
-                ].append(PDFS(g.gid, e, p))
-            # rmpath forward
-            for rmpath_i in rmpath:
-                edges = self._get_forward_rmpath_edges(g,
-                                                       history.edges[rmpath_i],
-                                                       min_vlb,
-                                                       history)
-                for e in edges:
-                    forward_root[
-                        (self._DFScode[rmpath_i].frm,
-                         e.elb, g.vertices[e.to].vlb)
-                    ].append(PDFS(g.gid, e, p))
+            rm_edge = None
+            if p.edge is not None:
+                if self._is_forward_edge(p.edge):
+                    rm_edge = self._get_backward_edge(g, p.edge, edge, history)
+                else:
+                    rm_edge = p.edge
+            for vid, v in g.vertices[edge.to].edges.items():
+                if vid == edge.frm:
+                    continue
+                if history.has_vertex(vid):
+                    continue
+                if rm_edge is not None and \
+                        rm_edge != v:
+                    continue
+                new_projected.push_back(p.gid, v, p)
+        return new_projected
 
-        # backward
-        for to, elb in backward_root:
-            self._DFScode.append(DFSedge(
-                maxtoc, to,
-                (VACANT_VERTEX_LABEL, elb, VACANT_VERTEX_LABEL))
-            )
-            self._subgraph_mining(backward_root[(to, elb)])
-            self._DFScode.pop()
-        # forward
-        # No need to check if num_vertices >= self._max_num_vertices.
-        # Because forward_root has no element.
-        for frm, elb, vlb2 in forward_root:
-            self._DFScode.append(DFSedge(
-                frm, maxtoc + 1,
-                (VACANT_VERTEX_LABEL, elb, vlb2))
-            )
-            self._subgraph_mining(forward_root[(frm, elb, vlb2)])
-            self._DFScode.pop()
+    def _is_forward_edge(self, e):
+        return e.frm != 0
 
-        return self
+    def plot(self):
+        """Plot the frequent subgraphs."""
+        for g in self._frequent_subgraphs:
+            g.plot()
