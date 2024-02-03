@@ -449,32 +449,4 @@ class gSpan(object):
         """Plot the frequent subgraphs."""
         for g in self._frequent_subgraphs:
             g.plot()
-"""===================================================================================="""
-# Your existing code to generate frequent subgraphs
-gspan_mining_instance = gSpan(...)
-gspan_mining_instance.run()
-frequent_subgraphs = gspan_mining_instance.get_frequent_subgraphs()
 
-# Set a directory to save the figures
-output_dir = "./output_figures/"
-
-if not os.path.exists(output_dir):
-    os.makedirs(output_dir)
-
-# Loop through each frequent subgraph, generate the visualization, and save it as an image
-for idx, subgraph in enumerate(frequent_subgraphs):
-    print("Graph ID:", idx)
-    subgraph.display()
-    print("Support:", subgraph.support)
-    
-    # Save the visualization as an image
-    fig_path = os.path.join(output_dir, f"graph_{idx}.png")
-    plt.savefig(fig_path)
-    plt.close()  # Close the plot to free memory
-
-# Display the saved images
-from IPython.display import Image
-
-for idx, _ in enumerate(frequent_subgraphs):
-    fig_path = os.path.join(output_dir, f"graph_{idx}.png")
-    display(Image(fig_path))
